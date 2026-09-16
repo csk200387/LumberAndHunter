@@ -15,6 +15,7 @@ type StorageAccess = Pick<Storage, "getItem" | "setItem">;
 export function createDefaultState(now = Date.now()): State {
   return {
     gold: 0,
+    autoMode: "off",
     wood: 0,
     meat: 0,
     upgrades: { weapon: 0, armor: 0, gloves: 0, boots: 0 },
@@ -69,6 +70,8 @@ export function normalizeState(value: unknown, now = Date.now()): State {
   ] as const) {
     state[key] = integer(raw[key]);
   }
+  if (raw.autoMode === "earn" || raw.autoMode === "grow")
+    state.autoMode = raw.autoMode;
   const upgrades = record(raw.upgrades);
   for (const slot of EQUIP_SLOTS) {
     state.upgrades[slot] = integer(

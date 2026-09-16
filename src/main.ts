@@ -1,5 +1,6 @@
 import "./style.css";
 import { Game } from "./game";
+import type { AutoMode } from "./types.ts";
 import { createInterface } from "./interface.ts";
 
 createInterface();
@@ -38,6 +39,12 @@ const game = new Game(canvasHolder, {
   infoPanelBody: element<HTMLElement>("#info-panel-body"),
   offlineBanner: element<HTMLElement>("#offline-banner"),
 });
+
+for (const mode of ["off", "earn", "grow"] as const)
+  element<HTMLButtonElement>(`#auto-mode-${mode}`).addEventListener(
+    "click",
+    () => game.setAutoMode(mode as AutoMode),
+  );
 
 const closePanel = () => {
   game.closeJournal();

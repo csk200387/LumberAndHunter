@@ -46,6 +46,8 @@ import { GameAudio } from "./audio.ts";
 import { PlayerMotion } from "./player-motion.ts";
 import { ResourceBars } from "./resource-bars.ts";
 import { ResourceHover, pickHarvestable } from "./resource-hover.ts";
+import { chooseGrowthAction } from "./auto-mode.ts";
+import type { AutoMode } from "./types.ts";
 import { createDefaultState, loadState, saveState } from "./state.ts";
 import * as economy from "./economy.ts";
 import {
@@ -85,6 +87,7 @@ export class Game {
   private events = new AbortController();
   private saveTimer = 0;
   private frameId = 0;
+  private autoTimer = 0;
 
   private moveTarget: THREE.Vector3 | null = null;
   private target: Harvestable | null = null;
@@ -305,6 +308,21 @@ export class Game {
     this.state.unlockedRing = nextRing;
     this.populateRing(nextRing);
     this.updateHud();
+  }
+
+  setAutoMode(mode: AutoMode) {
+    if (!this.ready || this.state.autoMode === mode) return;
+    this.state.autoMode = mode;
+    this.autoTimer = 0;
+    if (mode !== "off")
+      this.view.showToast(
+        mode === "earn"
+          ? "골드 수집 자동 모드를 시작합니다."
+          : "자동 성장 모드를 시작합니다.",
+      );
+    else this.view.showToast("자동 모드를 끄고 수동 조작으로 전환했습니다.");
+    this.updateHud();
+    this.saveState();
   }
 
   private saveState() {
@@ -629,7 +647,7 @@ export class Game {
     }
   }
 
-  private sellAll() {
+  private sellAll(quiet = false) {
     if (this.state.wood <= 0 && this.state.meat <= 0) return;
     const raw =
       this.state.wood * WOOD_SELL_PRICE + this.state.meat * MEAT_SELL_PRICE;
@@ -641,7 +659,7 @@ export class Game {
       `+${earned} 골드`,
       this.player.position.clone().add(new THREE.Vector3(0, 2.7, 0)),
     );
-    this.view.showToast(`교역 완료 · ${earned} 골드를 받았습니다.`);
+    if (!quiet) this.view.showToast(`교역 완료 · ${earned} 골드를 받았습니다.`);
     this.state.wood = 0;
     this.state.meat = 0;
     this.updateHud();
@@ -654,6 +672,33 @@ export class Game {
     this.state.upgrades[slot]++;
     if (slot === "armor") this.playerHp += 5; // top up so the new max feels like an immediate gain
     this.updateHud();
+  }
+
+  private tickAuto(dt: number) {
+    if (this.state.autoMode === "off") return;
+    if (!this.target?.alive && !this.moveTarget) {
+      const nearest = this.harvestables
+        .filter((target) => target.alive)
+        .sort(
+          (a, b) =>
+            this.player.position.distanceToSquared(a.group.position) -
+            this.player.position.distanceToSquared(b.group.position),
+        )[0];
+      if (nearest) {
+        this.target = nearest;
+        this.moveTarget = nearest.group.position.clone();
+      }
+    }
+    this.autoTimer += dt;
+    if (this.autoTimer < 0.5) return;
+    this.autoTimer = 0;
+    this.sellAll(true);
+    const action = chooseGrowthAction(this.state);
+    if (!action) return;
+    if (action.type === "upgrade") this.buyUpgrade(action.slot);
+    else if (action.type === "worker") this.hireWorker();
+    else if (action.type === "tower") this.buildTower();
+    else this.buyRingExpansion();
   }
 
   private updateHud() {
@@ -715,6 +760,7 @@ export class Game {
   private update(dt: number) {
     if (!this.ready) return;
     const now = performance.now();
+    this.tickAuto(dt);
     this.tickPlayer(dt, now);
 
     for (const h of this.harvestables) {

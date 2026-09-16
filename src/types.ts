@@ -1,6 +1,7 @@
 import type * as THREE from "three";
 
 export type EquipSlot = "weapon" | "armor" | "gloves" | "boots";
+export type AutoMode = "off" | "earn" | "grow";
 export type Species = "pine" | "oak" | "rabbit" | "chicken" | "boar" | "deer";
 
 export interface Harvestable {
@@ -36,6 +37,7 @@ export interface CarrierUnit {
 }
 
 export interface State {
+  autoMode: AutoMode;
   gold: number;
   wood: number;
   meat: number;

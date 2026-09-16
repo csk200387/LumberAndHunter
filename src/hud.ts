@@ -2,6 +2,7 @@ import type { EquipSlot, State, Harvestable } from "./types.ts";
 import * as balance from "./balance.ts";
 import * as economy from "./economy.ts";
 import { icon } from "./icons.ts";
+import { AUTO_MODE_COPY } from "./auto-mode.ts";
 
 export interface HudElements {
   gold: HTMLElement;
@@ -85,6 +86,18 @@ export class Hud {
     this.hud.wood.textContent = number.format(state.wood);
     this.hud.meat.textContent = number.format(state.meat);
     this.hud.hp.textContent = `${Math.ceil(playerHp)} / ${economy.maxHp(state)}`;
+    const [modeLabel, modeDescription] = AUTO_MODE_COPY[state.autoMode];
+    this.text("auto-mode-status", modeLabel);
+    this.text("auto-mode-description", modeDescription);
+    for (const mode of ["off", "earn", "grow"] as const) {
+      const button = this.element(
+        `auto-mode-${mode}`,
+      ) as HTMLButtonElement | null;
+      if (!button) continue;
+      const active = state.autoMode === mode;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    }
     this.fill("health-fill", playerHp / economy.maxHp(state));
     const equipment = {
       weapon: [
