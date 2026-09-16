@@ -20,7 +20,7 @@ function harvestFixture() {
     state: createDefaultState(),
     target: animal,
     moveTarget: new THREE.Vector3(1, 0, 1),
-    attackTimer: 0.5,
+    attackCooldown: 0.5,
     anchor: null,
     view: { showToast() {} },
     updateHud() {},
@@ -39,7 +39,7 @@ test("automation harvesting a different entity keeps the player target", () => {
   };
   game.harvest(tree, 8, true);
   assert.equal(game.target, animal);
-  assert.equal(game.attackTimer, 0.5);
+  assert.equal(game.attackCooldown, 0.5);
   assert.equal(tree.alive, false);
   assert.ok(game.state.wood >= 2 && game.state.wood <= 3);
 });
@@ -49,7 +49,7 @@ test("finishing the selected target also clears its stale movement destination",
   game.harvest(animal, 40);
   assert.equal(game.target, null);
   assert.equal(game.moveTarget, null);
-  assert.equal(game.attackTimer, 0);
+  assert.equal(game.attackCooldown, 0.5);
 });
 
 test("a defeated entity cannot pay out resources again", () => {

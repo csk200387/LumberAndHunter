@@ -161,7 +161,15 @@ export class ModelLibrary {
 
   strike(group: THREE.Group, now = performance.now() / 1000) {
     const actor = this.actors.get(group);
-    if (actor) actor.attackUntil = now + 0.45;
+    const action = actor?.actions.get("attack-melee-right");
+    if (!actor || !action) return;
+    if (actor.current !== "attack-melee-right")
+      actor.actions.get(actor.current)?.fadeOut(0.04);
+    // Start each strike immediately, including repeats during a previous swing.
+    action.reset().setLoop(THREE.LoopOnce, 1).fadeIn(0.04).play();
+    action.clampWhenFinished = true;
+    actor.current = "attack-melee-right";
+    actor.attackUntil = now + action.getClip().duration;
   }
 
   setMotion(group: THREE.Group, speed: number) {

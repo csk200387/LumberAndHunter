@@ -88,7 +88,7 @@ export class Game {
 
   private moveTarget: THREE.Vector3 | null = null;
   private target: Harvestable | null = null;
-  private attackTimer = 0;
+  private attackCooldown = 0;
 
   private playerHp = PLAYER_MAX_HP;
   private stunnedUntil = 0;
@@ -371,7 +371,7 @@ export class Game {
     this.state = resetRun(this.state, gain);
     this.prestigeArmed = false;
     this.placingAnchor = false;
-    this.attackTimer = 0;
+    this.attackCooldown = 0;
     this.stunnedUntil = 0;
     clearTimeout(this.prestigeTimer);
     disposeObjects([
@@ -617,7 +617,6 @@ export class Game {
     const target = pickHarvestable(this.raycaster, this.harvestables);
     if (target) {
       this.target = target;
-      this.attackTimer = 0;
       this.moveTarget = target.group.position.clone();
       return;
     }
@@ -669,10 +668,9 @@ export class Game {
     );
   }
 
-  private update(dt: number) {
-    if (!this.ready) return;
-    const now = performance.now();
-
+  private tickPlayer(dt: number, now: number) {
+    // Recovery runs while walking or idle; a fresh target never adds wind-up.
+    this.attackCooldown = Math.max(0, this.attackCooldown - dt);
     if (now >= this.stunnedUntil) {
       if (this.target?.alive) {
         const distance = this.player.position.distanceTo(
@@ -686,12 +684,16 @@ export class Game {
             economy.moveSpeed(this.state),
             ATTACK_RANGE - 0.02,
           );
-        } else {
+        }
+        // Moving into range should land a hit in this tick, not the next one.
+        if (
+          this.player.position.distanceTo(this.target.group.position) <=
+          ATTACK_RANGE
+        ) {
           this.playerMotion.stop();
           this.playerMotion.face(this.player, this.target.group.position, dt);
-          this.attackTimer += dt;
-          if (this.attackTimer >= economy.attackInterval(this.state)) {
-            this.attackTimer = 0;
+          if (this.attackCooldown <= 1e-8) {
+            this.attackCooldown = economy.attackInterval(this.state);
             this.models.strike(this.player);
             this.harvest(this.target, economy.currentDamage(this.state));
           }
@@ -708,6 +710,12 @@ export class Game {
           this.moveTarget = null;
       } else this.playerMotion.stop();
     } else this.playerMotion.stop();
+  }
+
+  private update(dt: number) {
+    if (!this.ready) return;
+    const now = performance.now();
+    this.tickPlayer(dt, now);
 
     for (const h of this.harvestables) {
       if (!h.alive) {
@@ -942,7 +950,6 @@ export class Game {
       if (this.target === h) {
         this.target = null;
         this.moveTarget = null;
-        this.attackTimer = 0;
       }
       this.updateHud();
     }
@@ -967,7 +974,6 @@ export class Game {
     this.target = null;
     this.moveTarget = null;
     this.placingAnchor = false;
-    this.attackTimer = 0;
     this.updateHud();
   }
 
