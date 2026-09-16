@@ -104,6 +104,8 @@ export class Game {
   private moveTarget: THREE.Vector3 | null = null;
   private target: Harvestable | null = null;
   private attackCooldown = 0;
+  private heldPointerId: number | null = null;
+  private ignoreClickUntil = 0;
 
   private playerHp = PLAYER_MAX_HP;
   private stunnedUntil = 0;
@@ -188,6 +190,28 @@ export class Game {
     this.renderer.domElement.addEventListener(
       "click",
       (e) => this.onClick(e),
+      options,
+    );
+    this.renderer.domElement.addEventListener(
+      "pointerdown",
+      (event) => this.onPointerDown(event),
+      options,
+    );
+    this.renderer.domElement.addEventListener(
+      "pointermove",
+      (event) => this.onPointerMove(event),
+      options,
+    );
+    for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) {
+      this.renderer.domElement.addEventListener(
+        type,
+        (event) => this.onPointerEnd(event as PointerEvent),
+        options,
+      );
+    }
+    window.addEventListener(
+      "pointerup",
+      (event) => this.onPointerEnd(event),
       options,
     );
     window.addEventListener("resize", () => this.onResize(), options);
@@ -682,20 +706,97 @@ export class Game {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
   }
 
-  private onClick(e: MouseEvent) {
-    if (
-      !this.ready ||
-      !this.hud.infoPanel.hidden ||
-      performance.now() < this.stunnedUntil
-    )
-      return;
+  private canUseWorldInput() {
+    return (
+      this.ready &&
+      this.hud.infoPanel.hidden &&
+      performance.now() >= this.stunnedUntil
+    );
+  }
 
+  private pointRayAt(clientX: number, clientY: number) {
     const rect = this.renderer.domElement.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return false;
     const ndc = new THREE.Vector2(
-      ((e.clientX - rect.left) / rect.width) * 2 - 1,
-      -((e.clientY - rect.top) / rect.height) * 2 + 1,
+      ((clientX - rect.left) / rect.width) * 2 - 1,
+      -((clientY - rect.top) / rect.height) * 2 + 1,
     );
     this.raycaster.setFromCamera(ndc, this.camera);
+    return true;
+  }
+
+  private choosePointerDestination(
+    clientX: number,
+    clientY: number,
+    allowResource: boolean,
+    showMarker: boolean,
+  ) {
+    if (!this.pointRayAt(clientX, clientY)) return false;
+    if (allowResource) {
+      const target = pickHarvestable(this.raycaster, this.harvestables);
+      if (target) {
+        this.target = target;
+        this.moveTarget = target.group.position.clone();
+        return true;
+      }
+    }
+    const groundHit = this.raycaster.intersectObject(this.ground)[0];
+    if (!groundHit) return false;
+    this.target = null;
+    this.moveTarget = groundHit.point.clone();
+    if (showMarker) this.effects?.move(this.moveTarget);
+    return true;
+  }
+
+  private onPointerDown(event: PointerEvent) {
+    if (
+      event.pointerType !== "mouse" ||
+      event.button !== 0 ||
+      this.placingAnchor ||
+      !this.canUseWorldInput()
+    )
+      return;
+    this.heldPointerId = event.pointerId;
+    this.renderer.domElement.setPointerCapture?.(event.pointerId);
+    this.choosePointerDestination(
+      event.clientX,
+      event.clientY,
+      true,
+      true,
+    );
+  }
+
+  private onPointerMove(event: PointerEvent) {
+    if (event.pointerId !== this.heldPointerId) return;
+    if ((event.buttons & 1) === 0) {
+      this.onPointerEnd(event);
+      return;
+    }
+    if (this.placingAnchor || !this.canUseWorldInput()) return;
+    // While held, the ground under the cursor owns movement. Passing over a
+    // resource must not unexpectedly switch the player into attack mode.
+    this.choosePointerDestination(
+      event.clientX,
+      event.clientY,
+      false,
+      false,
+    );
+  }
+
+  private onPointerEnd(event: PointerEvent) {
+    if (event.pointerId !== this.heldPointerId) return;
+    this.heldPointerId = null;
+    // Pointer down already handled the command. Ignore the synthetic click
+    // that browsers emit immediately after pointer up so effects do not fire twice.
+    this.ignoreClickUntil = performance.now() + 250;
+    if (this.renderer.domElement.hasPointerCapture?.(event.pointerId))
+      this.renderer.domElement.releasePointerCapture(event.pointerId);
+  }
+
+  private onClick(e: MouseEvent) {
+    if (performance.now() < this.ignoreClickUntil) return;
+    if (!this.canUseWorldInput() || !this.pointRayAt(e.clientX, e.clientY))
+      return;
 
     if (this.placingAnchor) {
       const groundHit = this.raycaster.intersectObject(this.ground)[0];
@@ -711,19 +812,7 @@ export class Game {
       return;
     }
 
-    const target = pickHarvestable(this.raycaster, this.harvestables);
-    if (target) {
-      this.target = target;
-      this.moveTarget = target.group.position.clone();
-      return;
-    }
-
-    const groundHit = this.raycaster.intersectObject(this.ground)[0];
-    if (groundHit) {
-      this.target = null;
-      this.moveTarget = groundHit.point.clone();
-      this.effects?.move(this.moveTarget);
-    }
+    this.choosePointerDestination(e.clientX, e.clientY, true, true);
   }
 
   private sellAll(quiet = false) {
@@ -1105,6 +1194,7 @@ export class Game {
 
   cancelAction() {
     this.playerMotion.stop();
+    this.heldPointerId = null;
     this.target = null;
     this.moveTarget = null;
     this.placingAnchor = false;

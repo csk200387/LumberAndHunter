@@ -117,6 +117,109 @@ test("anchor placement charges gold only after a valid ground click", () => {
   assert.equal(game.placingAnchor, false);
 });
 
+test("holding the left mouse button continuously updates the ground destination", () => {
+  const game = Object.create(Game.prototype);
+  const resource = {
+    alive: true,
+    group: new THREE.Group(),
+  };
+  let groundPoint = new THREE.Vector3(3, 0, 4);
+  let resourceHit = true;
+  let captured = null;
+  let released = null;
+  let markerCount = 0;
+  Object.assign(game, {
+    ready: true,
+    stunnedUntil: 0,
+    placingAnchor: false,
+    heldPointerId: null,
+    ignoreClickUntil: 0,
+    target: null,
+    moveTarget: null,
+    harvestables: [resource],
+    ground: {},
+    camera: {},
+    hud: { infoPanel: { hidden: true } },
+    effects: { move: () => markerCount++ },
+    renderer: {
+      domElement: {
+        getBoundingClientRect: () => ({
+          left: 0,
+          top: 0,
+          width: 100,
+          height: 100,
+        }),
+        setPointerCapture: (id) => {
+          captured = id;
+        },
+        hasPointerCapture: (id) => captured === id,
+        releasePointerCapture: (id) => {
+          released = id;
+          captured = null;
+        },
+      },
+    },
+    raycaster: {
+      setFromCamera() {},
+      intersectObjects: () =>
+        resourceHit ? [{ object: resource.group }] : [],
+      intersectObject: () => [{ point: groundPoint }],
+    },
+  });
+
+  game.onPointerDown({
+    pointerType: "mouse",
+    button: 0,
+    buttons: 1,
+    pointerId: 7,
+    clientX: 25,
+    clientY: 30,
+  });
+  assert.equal(captured, 7);
+  assert.equal(game.target, resource);
+  assert.deepEqual(game.moveTarget.toArray(), [0, 0, 0]);
+
+  resourceHit = false;
+  groundPoint = new THREE.Vector3(8, 0, 9);
+  game.onPointerMove({
+    pointerType: "mouse",
+    buttons: 1,
+    pointerId: 7,
+    clientX: 70,
+    clientY: 65,
+  });
+  assert.equal(game.target, null);
+  assert.deepEqual(game.moveTarget.toArray(), [8, 0, 9]);
+  assert.equal(markerCount, 0);
+
+  game.onPointerEnd({ pointerId: 7 });
+  assert.equal(game.heldPointerId, null);
+  assert.equal(released, 7);
+  groundPoint = new THREE.Vector3(20, 0, 20);
+  game.onClick({ clientX: 50, clientY: 50 });
+  assert.deepEqual(game.moveTarget.toArray(), [8, 0, 9]);
+});
+
+test("hold-to-move ignores touch and non-left mouse input", () => {
+  const game = Object.create(Game.prototype);
+  let raycasts = 0;
+  Object.assign(game, {
+    ready: true,
+    stunnedUntil: 0,
+    placingAnchor: false,
+    heldPointerId: null,
+    hud: { infoPanel: { hidden: true } },
+    renderer: { domElement: { setPointerCapture() {} } },
+    choosePointerDestination: () => {
+      raycasts++;
+    },
+  });
+  game.onPointerDown({ pointerType: "touch", button: 0, pointerId: 1 });
+  game.onPointerDown({ pointerType: "mouse", button: 2, pointerId: 2 });
+  assert.equal(game.heldPointerId, null);
+  assert.equal(raycasts, 0);
+});
+
 test("HUD disables actions during loading and rendering does not award achievements", () => {
   const node = () => ({
     textContent: "",

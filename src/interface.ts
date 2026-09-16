@@ -7,7 +7,7 @@ const control = (id: string, name: string, label: string) =>
 
 export function createInterface() {
   document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
-    <div id="canvas-holder" aria-label="숲속 개척지. 땅을 클릭해 이동하고 나무나 동물을 클릭해 채집합니다."></div>
+    <div id="canvas-holder" aria-label="숲속 개척지. 땅을 클릭하거나 왼쪽 버튼을 누른 채 움직여 이동하고, 나무나 동물을 클릭해 채집합니다."></div>
     <div class="world-vignette"></div><div id="resource-bars"></div><div id="floating-labels" aria-hidden="true"></div>
     <div id="loading-screen"><div class="loading-emblem">${icon("tree")}</div><p class="eyebrow">YOUR NEXT LITTLE ADVENTURE</p><h1>Lumber <i>&amp;</i> Hunt</h1><p id="loading-message">숲이 깨어나고 있습니다…</p><div class="loading-track"><span></span></div></div>
     <div id="hud">
@@ -48,7 +48,7 @@ export function createInterface() {
       <footer class="bottom-bar"><div class="player-card"><div class="portrait">${icon("axe")}</div><div><div class="player-name">숲의 개척자 <span>EXPLORER</span></div><div class="health-row">${icon("heart")}<div class="health-track"><span id="health-fill"></span></div><span id="hud-hp">100 / 100</span></div></div></div>
         <nav class="journal-nav" aria-label="게임 메뉴"><button id="codex-btn"></button><button id="achievements-btn"></button><button id="camp-toggle-btn" aria-expanded="true" aria-controls="camp-panel">${icon("camp")}<span>개척지</span></button></nav>
         <div class="camera-controls">${control("home-btn", "home", "기지로 귀환 (H)")}<span></span>${control("zoom-out-btn", "minus", "축소")}${control("zoom-in-btn", "plus", "확대")}</div>
-      </footer><div class="control-hint"><span>클릭</span> 이동 · 채집 <b>·</b> <span>휠</span> 확대 / 축소 <b>·</b> <span>ESC</span> 취소</div>
+      </footer><div class="control-hint"><span>클릭 / 홀드</span> 이동 · 채집 <b>·</b> <span>휠</span> 확대 / 축소 <b>·</b> <span>ESC</span> 취소</div>
     </div>
     <div id="target-card" hidden><span id="target-name"></span><span id="target-hp"></span><div><i id="target-health-fill"></i></div></div>
     <div id="offline-banner" role="status" hidden></div>
