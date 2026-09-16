@@ -542,9 +542,15 @@ export class Scenery {
     return points;
   }
 
-  update(time: number, ring: number, dt = 0, distance = 0) {
-    const depth = this.atmosphere.update(dt, ring, distance);
-    for (const lantern of this.lanterns) lantern.intensity = 1.5 + depth * 7;
+  update(time: number, ring: number, dt = 0, distance = 0, worldTime = 0) {
+    const { depth, daylight } = this.atmosphere.update(
+      dt,
+      ring,
+      distance,
+      worldTime,
+    );
+    const glow = Math.max(depth, daylight.darkness);
+    for (const lantern of this.lanterns) lantern.intensity = 1.5 + glow * 8;
     const motesMaterial = this.motes.material as THREE.PointsMaterial;
     motesMaterial.opacity = 0.6 + depth * 0.25;
     this.fire.scale.set(
@@ -552,7 +558,7 @@ export class Scenery {
       1 + Math.sin(time * 11) * 0.12,
       1,
     );
-    this.flameLight.intensity = 8 + depth * 5 + Math.sin(time * 9) * 1.5;
+    this.flameLight.intensity = 8 + glow * 7 + Math.sin(time * 9) * 1.5;
     this.motes.rotation.y = time * 0.008;
     this.ember.rotation.y = time * 0.25;
     const p = this.ember.geometry.getAttribute("position");
@@ -560,6 +566,7 @@ export class Scenery {
     p.needsUpdate = true;
     this.water.position.y = 0.028 + Math.sin(time * 0.6) * 0.002;
     this.boundary.visible = ring === 1;
+    return daylight;
   }
 
   dispose() {

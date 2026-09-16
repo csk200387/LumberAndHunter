@@ -29,7 +29,8 @@ export function createInterface() {
       <aside class="camp-panel" id="camp-panel"><div class="panel-heading"><div><p class="eyebrow">MAKE YOURSELF AT HOME</p><h2>나의 개척지 <span id="camp-level">Lv.1</span></h2></div><span class="camp-seal">${icon("camp")}</span></div>
         <div class="panel-tabs" role="tablist" aria-label="개척지 메뉴">${[
           ["equipment", "장비"],
-          ["automation", "동료"],
+          ["companions", "동료"],
+          ["automation", "자동"],
           ["territory", "개척"],
         ]
           .map(
@@ -38,7 +39,8 @@ export function createInterface() {
           )
           .join("")}</div>
         <div id="pane-equipment" class="tab-pane" role="tabpanel" aria-labelledby="tab-equipment"><p class="section-caption">좋은 도구가 만드는 작은 차이</p>${["weapon", "armor", "gloves", "boots"].map((id) => card(`upgrade-${id}-btn`)).join("")}</div>
-        <div id="pane-automation" class="tab-pane" role="tabpanel" aria-labelledby="tab-automation" hidden><p class="section-caption">자동 모드 <span id="auto-mode-status">수동</span></p><div class="auto-mode-options" role="group" aria-label="자동 모드 선택"><button id="auto-mode-off" type="button">수동</button><button id="auto-mode-earn" type="button">골드 수집</button><button id="auto-mode-grow" type="button">자동 성장</button></div><p id="auto-mode-description" class="auto-mode-description">직접 이동하고 채집합니다</p><p class="section-caption">함께하면 숲은 더 넓어집니다 <span id="slot-count">0 / 6</span></p>${["hire", "tower", "carrier", "anchor"].map((id) => card(`${id}-btn`)).join("")}</div>
+        <div id="pane-companions" class="tab-pane" role="tabpanel" aria-labelledby="tab-companions" hidden><p class="section-caption">함께하면 숲은 더 넓어집니다 <span id="slot-count">0 / 6</span></p>${["hire", "tower", "carrier", "anchor"].map((id) => card(`${id}-btn`)).join("")}</div>
+        <div id="pane-automation" class="tab-pane auto-pane" role="tabpanel" aria-labelledby="tab-automation" hidden><p class="section-caption">플레이 방식 <span id="auto-mode-status">수동</span></p><div class="auto-mode-options" role="group" aria-label="자동 모드 선택"><button id="auto-mode-off" type="button"><strong>수동</strong><small>직접 탐험</small></button><button id="auto-mode-earn" type="button"><strong>골드 수집</strong><small>채집 · 판매</small></button><button id="auto-mode-grow" type="button"><strong>자동 성장</strong><small>채집 · 판매 · 구매</small></button></div><p id="auto-mode-description" class="auto-mode-description">직접 이동하고 채집합니다</p><div class="auto-mode-guide"><strong>자동 모드 안내</strong><p>가장 가까운 자원을 찾아 이동하고 채집합니다.</p><p>자동 성장은 장비·동료·영토를 낮은 비용부터 구매합니다.</p><p>프레스티지와 앵커 위치는 직접 결정합니다.</p></div></div>
         <div id="pane-territory" class="tab-pane" role="tabpanel" aria-labelledby="tab-territory" hidden><p class="section-caption">다음 모험을 위한 한 걸음</p>${["expand", "platform", "prestige"].map((id) => card(`${id}-btn`)).join("")}</div>
         <div class="trade-box"><div>${icon("cart")}<div><strong>오늘의 교역</strong><small id="trade-prices">목재 2G · 고기 5G</small></div></div><button id="sell-btn">모두 판매 ${icon("arrow")}</button></div><div class="camp-note"><span class="live-dot"></span> <span id="save-status">진행 상황 자동 저장</span></div>
       </aside>

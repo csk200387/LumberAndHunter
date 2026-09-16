@@ -178,3 +178,82 @@ test("shared model resources are disposed once across clones and material arrays
   disposeObjects([mesh, mesh.clone()]);
   assert.deepEqual(counts, { geometry: 1, texture: 1, material: 1 });
 });
+
+test("night monsters appear at night, reset fully, and retreat at dawn", () => {
+  const game = Object.create(Game.prototype);
+  const monster = {
+    nightOnly: true,
+    alive: false,
+    hp: 1,
+    maxHp: 200,
+    group: new THREE.Group(),
+    home: new THREE.Vector3(14, 0, 3),
+    wanderTarget: new THREE.Vector3(),
+    attackTimer: 1,
+    respawnAt: Infinity,
+  };
+  monster.group.visible = false;
+  const messages = [];
+  Object.assign(game, {
+    nightMonsters: [monster],
+    nightActive: false,
+    ready: true,
+    target: monster,
+    moveTarget: new THREE.Vector3(2, 0, 2),
+    view: { showToast: (message) => messages.push(message) },
+  });
+  game.setNightActive(true, 500);
+  assert.equal(monster.alive, true);
+  assert.equal(monster.group.visible, true);
+  assert.equal(monster.hp, 200);
+  assert.deepEqual(monster.group.position.toArray(), [14, 0, 3]);
+  assert.equal(monster.wanderTarget, null);
+  assert.equal(monster.attackTimer, 0);
+  assert.equal(messages.length, 1);
+  game.setNightActive(false, 900);
+  assert.equal(monster.alive, false);
+  assert.equal(monster.group.visible, false);
+  assert.equal(game.target, null);
+  assert.equal(game.moveTarget, null);
+  assert.equal(messages.length, 2);
+});
+
+test("night monsters hunt from outside normal boar range without pulling the whole map", () => {
+  const game = Object.create(Game.prototype);
+  const monster = {
+    species: "boar",
+    nightOnly: true,
+    group: new THREE.Group(),
+    home: new THREE.Vector3(15, 0, 0),
+    wanderTarget: null,
+    nextWanderAt: 0,
+    attackTimer: 0,
+  };
+  monster.group.position.set(9, 0, 0);
+  let chased = false,
+    wandered = false,
+    damage = 0;
+  Object.assign(game, {
+    player: new THREE.Group(),
+    moveTowards: () => {
+      chased = true;
+    },
+    wander: () => {
+      wandered = true;
+    },
+    damagePlayer: (amount) => {
+      damage = amount;
+    },
+  });
+  game.aggro(monster, 0.1, 0);
+  assert.equal(chased, true);
+  monster.group.position.set(13, 0, 0);
+  chased = false;
+  game.aggro(monster, 0.1, 0);
+  assert.equal(chased, false);
+  assert.equal(wandered, true);
+  monster.group.position.set(1, 0, 0);
+  monster.attackTimer = 1.2;
+  game.aggro(monster, 0.1, 0);
+  assert.equal(damage, 6);
+});

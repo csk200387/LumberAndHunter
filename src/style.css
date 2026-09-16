@@ -332,7 +332,7 @@ button:focus-visible {
   margin: 0 18px;
   display: flex;
   border-bottom: 1px solid var(--line);
-  gap: 10px;
+  gap: 5px;
 }
 .panel-tabs button {
   position: relative;
@@ -367,14 +367,14 @@ button:focus-visible {
 }
 .auto-mode-options {
   display: grid;
-  grid-template-columns: 0.8fr 1.2fr 1.2fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 5px;
   margin: -4px 0 7px;
 }
 .auto-mode-options button {
   border: 1px solid #dbe3b81f;
   border-radius: 5px;
-  padding: 8px 3px;
+  padding: 10px 3px 9px;
   background: #10261e;
   color: #a9b8a5;
   font-size: 9px;
@@ -382,6 +382,22 @@ button:focus-visible {
     background 0.15s,
     color 0.15s,
     border-color 0.15s;
+}
+.auto-mode-options strong,
+.auto-mode-options small {
+  display: block;
+}
+.auto-mode-options strong {
+  font-size: 9px;
+  font-weight: 600;
+}
+.auto-mode-options small {
+  margin-top: 3px;
+  color: #71887a;
+  font-size: 7px;
+}
+.auto-mode-options button.active small {
+  color: #d7d7ac;
 }
 .auto-mode-options button:hover {
   background: #1b392c;
@@ -396,6 +412,22 @@ button:focus-visible {
   min-height: 15px;
   margin: 0 0 12px;
   color: #879c89;
+  font-size: 9px;
+}
+.auto-mode-guide {
+  margin-top: 18px;
+  padding: 15px;
+  border: 1px solid #dbe3b818;
+  border-radius: 7px;
+  background: #10261e88;
+  color: #819486;
+  font-size: 8px;
+  line-height: 1.7;
+}
+.auto-mode-guide strong {
+  display: block;
+  margin-bottom: 7px;
+  color: #b4c499;
   font-size: 9px;
 }
 .upgrade-card {

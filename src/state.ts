@@ -16,6 +16,7 @@ export function createDefaultState(now = Date.now()): State {
   return {
     gold: 0,
     autoMode: "off",
+    worldTime: 0,
     wood: 0,
     meat: 0,
     upgrades: { weapon: 0, armor: 0, gloves: 0, boots: 0 },
@@ -67,6 +68,7 @@ export function normalizeState(value: unknown, now = Date.now()): State {
     "goldEarnedThisRun",
     "totalGoldAllTime",
     "loginStreak",
+    "worldTime",
   ] as const) {
     state[key] = integer(raw[key]);
   }

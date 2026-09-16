@@ -3,6 +3,7 @@ import * as balance from "./balance.ts";
 import * as economy from "./economy.ts";
 import { icon } from "./icons.ts";
 import { AUTO_MODE_COPY } from "./auto-mode.ts";
+import { dayCycleAt } from "./atmosphere.ts";
 
 export interface HudElements {
   gold: HTMLElement;
@@ -255,7 +256,7 @@ export class Hud {
       deepForest ? "CHAPTER 02 · DEEPWOOD" : "CHAPTER 01 · GREENWOOD",
     );
     this.text("region-name", deepForest ? "깊은 숲의 개척지" : "초록빛 개척지");
-    this.text("region-mood", deepForest ? "안개가 짙어지는 숲" : "평화로운 숲");
+    this.worldTime(state.worldTime);
     const quest = !state.discovered.pine
       ? [
           "첫 번째 나무를 베어보세요",
@@ -292,12 +293,28 @@ export class Hud {
       this.renderPanel(this.hud.infoPanel.dataset.which as Panel);
   }
 
+  worldTime(elapsed: number) {
+    const daylight = dayCycleAt(elapsed);
+    const seconds = Math.max(0, Math.ceil(daylight.secondsUntilNext));
+    const clock = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+    const next = {
+      day: "해질녘",
+      dusk: "밤",
+      night: "새벽",
+      dawn: "낮",
+    }[daylight.stage];
+    this.text("region-mood", `${daylight.label} · ${next}까지 ${clock}`);
+  }
+
   target(target: Harvestable | null) {
     const card = this.element("target-card");
     if (!card) return;
     card.hidden = !target?.alive;
     if (target?.alive) {
-      this.text("target-name", balance.SPECIES_NAME[target.species]);
+      this.text(
+        "target-name",
+        target.displayName ?? balance.SPECIES_NAME[target.species],
+      );
       this.text("target-hp", `${Math.ceil(target.hp)} / ${target.maxHp}`);
       this.fill("target-health-fill", target.hp / target.maxHp);
     }

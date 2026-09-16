@@ -84,3 +84,11 @@ test("bars are not duplicated and are removed on world reset", () => {
   bars.clear();
   assert.equal(root.children.length, 0);
 });
+
+test("night monsters expose their distinct name to assistive technology", () => {
+  const { root, target, bars } = fixture();
+  bars.clear();
+  target.displayName = "그림자 멧돼지";
+  bars.add(target);
+  assert.equal(root.children[0].attributes["aria-label"], "그림자 멧돼지 체력");
+});

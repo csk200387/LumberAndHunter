@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import * as THREE from "three";
-import { ForestAtmosphere, forestDepth } from "../src/atmosphere.ts";
+import {
+  DAY_CYCLE_SECONDS,
+  ForestAtmosphere,
+  dayCycleAt,
+  forestDepth,
+} from "../src/atmosphere.ts";
 
 test("forest darkens with exploration while the starting camp stays warm", () => {
   assert.equal(forestDepth(1, 0), 0);
@@ -38,13 +43,27 @@ test("saved progression initializes correctly and deepest forest remains readabl
   assert.equal(scene.background.equals(scene.fog.color), true);
 });
 
-test("elapsed time does not darken an unexplored starting camp", () => {
+test("time advances through day, dusk, night and dawn before wrapping", () => {
+  assert.equal(dayCycleAt(0).stage, "day");
+  assert.equal(dayCycleAt(75).stage, "dusk");
+  assert.equal(dayCycleAt(100).isNight, true);
+  assert.equal(dayCycleAt(105).stage, "night");
+  assert.equal(dayCycleAt(150).stage, "dawn");
+  assert.equal(dayCycleAt(DAY_CYCLE_SECONDS).stage, "day");
+  assert.equal(dayCycleAt(-1).stage, "dawn");
+  assert.ok(dayCycleAt(90).darkness > 0 && dayCycleAt(90).darkness < 1);
+});
+
+test("night darkens even the starting camp while preserving playable moonlight", () => {
   const scene = new THREE.Scene(),
     atmosphere = new ForestAtmosphere(scene);
   const initialColor = scene.background.clone();
-  atmosphere.update(3600, 1, 0);
+  atmosphere.update(0, 1, 0, 120);
+  assert.equal(scene.background.equals(initialColor), false);
+  assert.ok(atmosphere.sun.intensity >= 0.32);
+  assert.ok(atmosphere.sky.intensity >= 0.58);
+  atmosphere.update(0, 1, 0, DAY_CYCLE_SECONDS);
   assert.equal(scene.background.equals(initialColor), true);
-  assert.equal(atmosphere.sun.intensity, 2.6);
 });
 
 test("transition speed is independent of render frame rate", () => {

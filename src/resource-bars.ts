@@ -24,7 +24,10 @@ export class ResourceBars {
     const element = this.root.ownerDocument.createElement("div");
     element.className = `resource-health ${target.kind}`;
     element.setAttribute("role", "meter");
-    element.setAttribute("aria-label", `${SPECIES_NAME[target.species]} 체력`);
+    element.setAttribute(
+      "aria-label",
+      `${target.displayName ?? SPECIES_NAME[target.species]} 체력`,
+    );
     element.setAttribute("aria-valuemin", "0");
     element.setAttribute("aria-valuemax", String(target.maxHp));
     const fill = this.root.ownerDocument.createElement("span");

@@ -48,6 +48,7 @@ import { ResourceBars } from "./resource-bars.ts";
 import { ResourceHover, pickHarvestable } from "./resource-hover.ts";
 import { chooseGrowthAction } from "./auto-mode.ts";
 import type { AutoMode } from "./types.ts";
+import { DAY_CYCLE_SECONDS, dayCycleAt } from "./atmosphere.ts";
 import { createDefaultState, loadState, saveState } from "./state.ts";
 import * as economy from "./economy.ts";
 import {
@@ -75,6 +76,17 @@ export class Game {
   private player: THREE.Group;
   private models = new ModelLibrary();
   private harvestables: Harvestable[] = [];
+  private nightMonsters: Harvestable[] = [];
+  private nightActive = false;
+  private lastClockSecond = -1;
+  private nightAuraGeometry = new THREE.RingGeometry(0.9, 1.12, 32);
+  private nightAuraMaterial = new THREE.MeshBasicMaterial({
+    color: 0xd34c79,
+    transparent: true,
+    opacity: 0.58,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
   private workers: WorkerUnit[] = [];
   private towers: TowerUnit[] = [];
   private carriers: CarrierUnit[] = [];
@@ -254,6 +266,12 @@ export class Game {
     for (let ring = 1; ring <= this.state.unlockedRing; ring++) {
       this.populateRing(ring);
     }
+    this.spawnNightMonsters();
+    this.setNightActive(
+      dayCycleAt(this.state.worldTime).isNight,
+      performance.now(),
+      false,
+    );
 
     for (let i = 0; i < this.state.workerCount; i++) {
       this.spawnWorker(i);
@@ -409,7 +427,10 @@ export class Game {
     }
     for (const h of this.harvestables) this.scene.remove(h.group);
     this.harvestables = [];
+    this.nightMonsters = [];
+    this.nightActive = false;
     this.populateRing(1);
+    this.spawnNightMonsters();
 
     this.player.position.set(0, 0, 0);
     this.playerHp = economy.maxHp(this.state);
@@ -427,6 +448,64 @@ export class Game {
     this.scene.add(h.group);
     this.harvestables.push(h);
     this.resourceBars.add(h);
+  }
+
+  private spawnNightMonsters() {
+    for (let i = 0; i < 4; i++) {
+      const angle = (i / 4) * Math.PI * 2 + 0.45;
+      const radius = 15 + (i % 2) * 4;
+      const monster = this.makeHarvestable(
+        "boar",
+        new THREE.Vector3(
+          Math.cos(angle) * radius,
+          0,
+          Math.sin(angle) * radius,
+        ),
+      );
+      monster.displayName = "그림자 멧돼지";
+      monster.nightOnly = true;
+      monster.group.scale.multiplyScalar(1.08);
+      const aura = new THREE.Mesh(
+        this.nightAuraGeometry,
+        this.nightAuraMaterial,
+      );
+      aura.rotation.x = -Math.PI / 2;
+      aura.position.y = 0.07;
+      monster.group.add(aura);
+      const glow = new THREE.PointLight(0xc52f62, 2.4, 5, 2);
+      glow.position.y = 1.1;
+      monster.group.add(glow);
+      monster.alive = false;
+      monster.group.visible = false;
+      this.scene.add(monster.group);
+      this.harvestables.push(monster);
+      this.nightMonsters.push(monster);
+      this.resourceBars.add(monster);
+    }
+  }
+
+  private setNightActive(active: boolean, now: number, announce = this.ready) {
+    if (active === this.nightActive) return;
+    this.nightActive = active;
+    for (const monster of this.nightMonsters) {
+      monster.alive = active;
+      monster.group.visible = active;
+      monster.hp = monster.maxHp;
+      monster.group.position.copy(monster.home);
+      monster.wanderTarget = null;
+      monster.attackTimer = 0;
+      monster.respawnAt = now;
+    }
+    if (!active && this.target?.nightOnly) {
+      this.target = null;
+      this.moveTarget = null;
+    }
+    if (announce)
+      this.view.showToast(
+        active
+          ? "밤이 찾아왔습니다. 그림자 몬스터를 조심하세요."
+          : "동이 틉니다. 밤의 몬스터가 숲으로 물러났습니다.",
+      );
   }
 
   private spawnWorker(index: number) {
@@ -760,11 +839,14 @@ export class Game {
   private update(dt: number) {
     if (!this.ready) return;
     const now = performance.now();
+    this.state.worldTime = (this.state.worldTime + dt) % DAY_CYCLE_SECONDS;
+    this.setNightActive(dayCycleAt(this.state.worldTime).isNight, now);
     this.tickAuto(dt);
     this.tickPlayer(dt, now);
 
     for (const h of this.harvestables) {
       if (!h.alive) {
+        if (h.nightOnly && !this.nightActive) continue;
         if (now >= h.respawnAt) {
           h.alive = true;
           h.hp = h.maxHp;
@@ -778,7 +860,7 @@ export class Game {
       }
       if (h.kind === "animal") {
         const cfg = SPECIES[h.species];
-        if (cfg.aggressive) {
+        if (cfg.aggressive || h.nightOnly) {
           this.aggro(h, dt, now);
         } else if (h !== this.target) {
           this.wander(h, dt, now);
@@ -870,17 +952,23 @@ export class Game {
   private aggro(h: Harvestable, dt: number, now: number) {
     const cfg = SPECIES[h.species];
     const distToPlayer = h.group.position.distanceTo(this.player.position);
-    if (distToPlayer > (cfg.aggroRange ?? 0)) {
+    const aggroRange = h.nightOnly ? 12 : (cfg.aggroRange ?? 0);
+    if (distToPlayer > aggroRange) {
       this.wander(h, dt, now);
       return;
     }
     if (distToPlayer > ATTACK_RANGE) {
-      this.moveTowards(this.player.position, dt, h.group, cfg.speed);
+      this.moveTowards(
+        this.player.position,
+        dt,
+        h.group,
+        h.nightOnly ? 3.6 : cfg.speed,
+      );
     } else {
       h.attackTimer += dt;
       if (h.attackTimer >= (cfg.attackInterval ?? 1)) {
         h.attackTimer = 0;
-        this.damagePlayer(cfg.damage ?? 0);
+        this.damagePlayer(h.nightOnly ? 6 : (cfg.damage ?? 0));
       }
     }
   }
@@ -963,7 +1051,7 @@ export class Game {
       h.group.visible = false;
       this.effects?.fall(h);
       h.respawnAt = performance.now() + cfg.respawnSec * 1000;
-      if (!this.state.discovered[h.species]) {
+      if (!h.nightOnly && !this.state.discovered[h.species]) {
         this.state.discovered[h.species] = true;
         this.view.showToast(`도감 등록: ${SPECIES_NAME[h.species]}`);
       }
@@ -1042,6 +1130,8 @@ export class Game {
     this.effects.dispose();
     this.resourceBars.clear();
     this.audio.dispose();
+    this.nightAuraGeometry.dispose();
+    this.nightAuraMaterial.dispose();
     // Instances share template geometry/materials; dispose the whole set only once.
     const templates = this.models.templates();
     this.models.clear();
@@ -1077,7 +1167,13 @@ export class Game {
       this.state.unlockedRing,
       dt,
       Math.hypot(this.player.position.x, this.player.position.z),
+      this.state.worldTime,
     );
+    const clockSecond = Math.floor(this.state.worldTime);
+    if (clockSecond !== this.lastClockSecond) {
+      this.lastClockSecond = clockSecond;
+      this.view.worldTime(this.state.worldTime);
+    }
     this.models.setMotion(this.player, this.playerMotion.speed);
     this.models.update(dt, now / 1000);
     this.resourceBars.update(this.camera, this.target);

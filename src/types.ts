@@ -17,6 +17,8 @@ export interface Harvestable {
   wanderTarget: THREE.Vector3 | null;
   nextWanderAt: number;
   attackTimer: number;
+  displayName?: string;
+  nightOnly?: boolean;
 }
 
 export interface WorkerUnit {
@@ -38,6 +40,7 @@ export interface CarrierUnit {
 
 export interface State {
   autoMode: AutoMode;
+  worldTime: number;
   gold: number;
   wood: number;
   meat: number;
