@@ -36,6 +36,8 @@ export class Effects {
   private hitMaterial = new THREE.MeshBasicMaterial({ color: 0xffe4aa });
   private destination: THREE.Mesh;
   private selection: THREE.Mesh;
+  private hoverRing: THREE.Mesh;
+  private hoverFill: THREE.Mesh;
   private playerRing: THREE.Mesh;
   private hitTimes = new Map<THREE.Group, number>();
   private falling: FallingEntity[] = [];
@@ -68,6 +70,9 @@ export class Effects {
     this.destination.visible = false;
     this.selection = ring(1, 1.04, 0xf4d693, 0.8);
     this.selection.visible = false;
+    this.hoverRing = ring(1, 1.055, 0xc8eee0, 0.85);
+    this.hoverFill = ring(0, 1, 0xc8eee0, 0.08);
+    this.hoverRing.visible = this.hoverFill.visible = false;
     this.playerRing = ring(0.48, 0.55, 0xe8d299, 0.65);
   }
 
@@ -149,6 +154,7 @@ export class Effects {
     player: THREE.Group,
     target: Harvestable | null,
     moving: boolean,
+    hovered: Harvestable | null = null,
   ) {
     this.playerRing.position.set(player.position.x, 0.07, player.position.z);
     this.destination.visible = moving && !target;
@@ -161,6 +167,19 @@ export class Effects {
         target.group.position.z,
       );
       this.selection.scale.setScalar(target.kind === "tree" ? 1.2 : 0.7);
+    }
+    const showHover =
+      !!hovered?.alive && hovered.group.visible && hovered !== target;
+    this.hoverRing.visible = this.hoverFill.visible = showHover;
+    if (showHover && hovered) {
+      for (const marker of [this.hoverRing, this.hoverFill]) {
+        marker.position.set(
+          hovered.group.position.x,
+          0.075,
+          hovered.group.position.z,
+        );
+        marker.scale.setScalar(hovered.kind === "tree" ? 1.2 : 0.7);
+      }
     }
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const particle = this.particles[i];
@@ -216,6 +235,7 @@ export class Effects {
   }
 
   reset() {
+    this.hoverRing.visible = this.hoverFill.visible = false;
     for (const particle of this.particles) this.root.remove(particle.mesh);
     for (const label of this.labels) label.element.remove();
     for (const group of this.hitTimes.keys()) group.rotation.z = 0;

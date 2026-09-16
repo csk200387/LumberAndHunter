@@ -45,6 +45,7 @@ import { Effects } from "./effects.ts";
 import { GameAudio } from "./audio.ts";
 import { PlayerMotion } from "./player-motion.ts";
 import { ResourceBars } from "./resource-bars.ts";
+import { ResourceHover, pickHarvestable } from "./resource-hover.ts";
 import { createDefaultState, loadState, saveState } from "./state.ts";
 import * as economy from "./economy.ts";
 import {
@@ -61,6 +62,7 @@ export class Game {
   private audio = new GameAudio();
   private playerMotion = new PlayerMotion();
   private resourceBars: ResourceBars;
+  private resourceHover: ResourceHover;
   private cameraFocus = new THREE.Vector3();
   private cameraOffset = new THREE.Vector3(26, 34, 26);
   private zoom = 1.12;
@@ -111,6 +113,10 @@ export class Game {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
     container.appendChild(this.renderer.domElement);
+    this.resourceHover = new ResourceHover(
+      this.renderer.domElement,
+      this.events.signal,
+    );
 
     const d = window.innerWidth < 761 ? 17 : 15.5;
     const aspect = window.innerWidth / window.innerHeight;
@@ -608,21 +614,12 @@ export class Game {
       return;
     }
 
-    const liveMeshes = this.harvestables
-      .filter((h) => h.alive)
-      .map((h) => h.group);
-    const hit = this.raycaster.intersectObjects(liveMeshes, true)[0];
-    if (hit) {
-      // glTF models nest meshes several levels deep, so walk up to the harvestable's root group
-      let node: THREE.Object3D | null = hit.object;
-      while (node && !liveMeshes.some((g) => g === node)) node = node.parent;
-      const target = this.harvestables.find((h) => h.group === node);
-      if (target) {
-        this.target = target;
-        this.attackTimer = 0;
-        this.moveTarget = target.group.position.clone();
-        return;
-      }
+    const target = pickHarvestable(this.raycaster, this.harvestables);
+    if (target) {
+      this.target = target;
+      this.attackTimer = 0;
+      this.moveTarget = target.group.position.clone();
+      return;
     }
 
     const groundHit = this.raycaster.intersectObject(this.ground)[0];
@@ -1032,6 +1029,14 @@ export class Game {
     this.models.setMotion(this.player, this.playerMotion.speed);
     this.models.update(dt, now / 1000);
     this.resourceBars.update(this.camera, this.target);
+    const hovered = this.resourceHover.update(
+      this.camera,
+      this.harvestables,
+      this.ready &&
+        this.hud.infoPanel.hidden &&
+        !this.placingAnchor &&
+        now >= this.stunnedUntil,
+    );
     this.effects.update(
       dt,
       now / 1000,
@@ -1039,6 +1044,7 @@ export class Game {
       this.player,
       this.target,
       !!this.moveTarget,
+      hovered,
     );
     this.view.target(this.target);
     this.renderer.render(this.scene, this.camera);
