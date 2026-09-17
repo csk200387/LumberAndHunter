@@ -3,6 +3,7 @@ import { dayCycleAt } from "./atmosphere.ts";
 // Original instrumental score in eighth notes at 80 BPM. Both arrangements
 // share a clock so sunset can blend them without restarting either phrase.
 const STEP = 60 / 80 / 2;
+const HARVEST_VOLUME = 1.2;
 const DAY_CHORDS = [
   [48, 55, 59, 64], [45, 52, 55, 60],
   [41, 48, 52, 57], [43, 50, 55, 59],
@@ -25,8 +26,10 @@ export class GameAudio {
   private master: GainNode | null = null;
   private day: GainNode | null = null;
   private night: GainNode | null = null;
+  private harvest: GainNode | null = null;
+  private woodHit: AudioBuffer | null = null;
   private nodes: AudioNode[] = [];
-  private voices = new Set<OscillatorNode>();
+  private voices = new Set<AudioScheduledSourceNode>();
   private nextStep = 0;
   private step = 0;
   private worldTime = 0;
@@ -44,6 +47,9 @@ export class GameAudio {
     limiter.threshold.value = -12;
     limiter.ratio.value = 4;
     master.connect(limiter).connect(context.destination);
+    this.harvest = context.createGain();
+    this.harvest.gain.value = HARVEST_VOLUME;
+    this.harvest.connect(master);
     const music = context.createGain();
     music.gain.value = 0.65;
     const filter = context.createBiquadFilter();
@@ -62,7 +68,7 @@ export class GameAudio {
     this.night.gain.value = 0;
     this.day.connect(music);
     this.night.connect(music);
-    this.nodes = [master, limiter, music, filter, echo, feedback, this.day, this.night];
+    this.nodes = [master, limiter, this.harvest, music, filter, echo, feedback, this.day, this.night];
   }
 
   async start() {
@@ -169,11 +175,49 @@ export class GameAudio {
   }
 
   hit(tree: boolean) {
+    if (!this.enabled || !this.context || !this.harvest || this.disposed) return;
     const now = performance.now();
     if (now - this.lastHit < 90) return;
     this.lastHit = now;
-    this.tone(tree ? 180 : 290, 0.07, 0, "triangle", 0.06);
-    this.tone(tree ? 95 : 160, 0.1, 0.025, "sine", 0.035);
+    if (tree) {
+      this.woodHit ??= this.createWoodHit();
+      const source = this.context.createBufferSource();
+      source.buffer = this.woodHit;
+      source.playbackRate.value = 0.98 + Math.random() * 0.04;
+      source.connect(this.harvest);
+      this.voices.add(source);
+      source.onended = () => {
+        this.voices.delete(source);
+        source.disconnect();
+      };
+      source.start();
+    } else {
+      const start = this.context.currentTime;
+      this.note(290, 0.07, start, "triangle", 0.06, this.harvest);
+      this.note(160, 0.1, start + 0.025, "sine", 0.035, this.harvest);
+    }
+  }
+
+  private createWoodHit() {
+    const context = this.context!;
+    const buffer = context.createBuffer(1, Math.ceil(context.sampleRate * 0.48), context.sampleRate);
+    const samples = buffer.getChannelData(0);
+    let seed = 1729, lowNoise = 0;
+    for (let i = 0; i < samples.length; i++) {
+      const t = i / context.sampleRate;
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      lowNoise += (seed / 2147483648 - 1 - lowNoise) * 0.22;
+      // A short woody contact followed by the hollow, inharmonic body of a log.
+      // The low mode lingers; upper modes decay quickly so it rings, not beeps.
+      const body = 0.065 * Math.sin(2 * Math.PI * 148 * t) * Math.exp(-t / 0.095);
+      const wood = 0.028 * Math.sin(2 * Math.PI * 337 * t) * Math.exp(-t / 0.043)
+        + 0.014 * Math.sin(2 * Math.PI * 563 * t) * Math.exp(-t / 0.022);
+      const contact = 0.055 * lowNoise * Math.exp(-t / 0.008);
+      const envelope = Math.min(1, t / 0.0015)
+        * Math.min(1, (samples.length - 1 - i) / (context.sampleRate * 0.025));
+      samples[i] = (body + wood + contact) * envelope;
+    }
+    return buffer;
   }
   purchase() {
     [523, 659, 784].forEach((note, i) => this.tone(note, 0.22, i * 0.07));
@@ -186,6 +230,7 @@ export class GameAudio {
     this.voices.clear();
     for (const node of this.nodes) node.disconnect();
     this.nodes = [];
+    this.woodHit = null;
     void this.context?.close();
   }
 }
