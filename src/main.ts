@@ -118,19 +118,33 @@ element("#zoom-out-btn").addEventListener(
   options,
 );
 const soundButton = element("#sound-btn");
+let soundChosen = false;
+function showSoundState(enabled: boolean) {
+  const label = enabled ? "음악·효과음 끄기" : "음악·효과음 켜기";
+  soundButton.setAttribute("aria-pressed", String(enabled));
+  soundButton.setAttribute("aria-label", label);
+  soundButton.title = label;
+}
+canvasHolder.addEventListener("pointerdown", async () => {
+  if (soundChosen) return;
+  soundChosen = true;
+  try {
+    showSoundState(await game.startSound());
+  } catch {
+    showSoundState(false);
+    soundButton.title = "소리 버튼을 눌러 음악을 시작하세요";
+  }
+}, options);
 soundButton.addEventListener(
   "click",
   async () => {
+    soundChosen = true;
     try {
       const enabled = await game.toggleSound();
-      soundButton.setAttribute("aria-pressed", String(enabled));
-      soundButton.setAttribute(
-        "aria-label",
-        enabled ? "효과음 끄기" : "효과음 켜기",
-      );
-      soundButton.title = enabled ? "효과음 끄기" : "효과음 켜기";
+      showSoundState(enabled);
     } catch {
-      soundButton.title = "이 브라우저에서 효과음을 시작할 수 없습니다.";
+      showSoundState(false);
+      soundButton.title = "이 브라우저에서 음악과 효과음을 시작할 수 없습니다.";
     }
   },
   options,

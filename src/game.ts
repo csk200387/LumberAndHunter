@@ -215,6 +215,9 @@ export class Game {
       options,
     );
     window.addEventListener("resize", () => this.onResize(), options);
+    document.addEventListener("visibilitychange", () => {
+      this.audio.update(this.state.worldTime, document.hidden);
+    }, options);
     this.renderer.domElement.addEventListener(
       "wheel",
       (event) => {
@@ -1204,6 +1207,9 @@ export class Game {
   async toggleSound() {
     return this.audio.toggle();
   }
+  async startSound() {
+    return this.audio.start();
+  }
   closeJournal() {
     this.view.closePanel();
   }
@@ -1260,6 +1266,7 @@ export class Game {
       this.state.worldTime,
     );
     const clockSecond = Math.floor(this.state.worldTime);
+    this.audio.update(this.state.worldTime, document.hidden);
     if (clockSecond !== this.lastClockSecond) {
       this.lastClockSecond = clockSecond;
       this.view.worldTime(this.state.worldTime);

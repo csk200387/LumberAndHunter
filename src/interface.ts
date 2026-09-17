@@ -23,7 +23,7 @@ export function createInterface() {
           )
           .join(
             "",
-          )}<button id="sound-btn" class="icon-button" aria-label="효과음 켜기" aria-pressed="false" title="효과음 켜기">${icon("sound")}</button></div>
+          )}<button id="sound-btn" class="icon-button" aria-label="음악·효과음 켜기" aria-pressed="false" title="음악·효과음 켜기 · 첫 게임 조작 시 자동 재생">${icon("sound")}</button></div>
       </header>
       <section class="region-card"><span class="region-line"></span><div><p class="eyebrow" id="region-chapter">CHAPTER 01 · GREENWOOD</p><h2 id="region-name">초록빛 개척지</h2><p><span class="live-dot"></span> <span id="region-mood">평화로운 숲</span> <span class="region-divider">/</span> <span id="region-progress">탐험을 시작하세요</span></p></div></section>
       <aside class="camp-panel" id="camp-panel"><div class="panel-heading"><div><p class="eyebrow">MAKE YOURSELF AT HOME</p><h2>나의 개척지 <span id="camp-level">Lv.1</span></h2></div><span class="camp-seal">${icon("camp")}</span></div>
